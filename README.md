@@ -1,5 +1,10 @@
 ## ai2ai
 
+![](https://img.shields.io/github/issues/michalswi/ai2ai)
+![](https://img.shields.io/github/forks/michalswi/ai2ai)
+![](https://img.shields.io/github/stars/michalswi/ai2ai)
+![](https://img.shields.io/github/last-commit/michalswi/ai2ai)
+
 GO app to chat with ChatGPT (OpenAI) and Grok (X) simultaneously.  
 
 **Two options to run:**
