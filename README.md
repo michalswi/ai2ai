@@ -7,7 +7,9 @@
 
 GO app to chat with ChatGPT (OpenAI) and Grok (X) simultaneously.  
 
-**Two options to run:**
+### \# run
+
+There are two options to run app:
 ```
 > interactive discussion with AI models
 $ go run .
@@ -15,8 +17,8 @@ $ go run .
 > automatic discussion between AI models
 $ go run . -auto
 ```
-There is env variable **AI_TURNS** (default set to 3) to limit the number of responses from the AI models. 
+Using env variable **AI_TURNS** (default set to 3) you can limit the number of responses from the AI models (limit the discussion itself).
 
-For example `AI_TURNS=2 ./ai2ai` .
+### \# example
 
 ![example](./img/example.png)
