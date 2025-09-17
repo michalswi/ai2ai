@@ -1,0 +1,5 @@
+ai2ai
+ai2ai_*.json
+ai2ai_macos_arm64*
+ai2ai_linux_amd64*
+
