@@ -9,6 +9,12 @@ GO app to chat with ChatGPT (OpenAI) and Grok (X) simultaneously.
 
 ### \# run
 
+You need API keys for both ChatGPT and Grok:
+```
+export API_KEY=<api_key> \
+export XAI_API_KEY=<api_key>
+```
+
 There are two options to run app:
 ```
 > interactive discussion with AI models
