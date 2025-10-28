@@ -23,7 +23,6 @@ import (
 
 const (
 	defaultAITurns = "3"
-	appName        = "ai2ai"
 	defaultModel   = openai.GPT5Mini
 	// https://docs.x.ai/docs/api-reference#chat-completions
 	defaultEndpoint  = "https://api.x.ai/v1/chat/completions"
@@ -35,7 +34,8 @@ const (
 	requestDiscussionPrompt      = "Review the discussion, respond to the latest points (including any user input), and provide your perspective or answer. Do not prefix your response with your name."
 )
 
-// Session represents a chat session to be saved
+var logger = log.New(os.Stdout, "ai2ai ", log.LstdFlags|log.Lshortfile|log.Ltime|log.LUTC)
+
 type Session struct {
 	Timestamp       string           `json:"timestamp"`
 	UserInputs      []string         `json:"user_inputs"`
@@ -44,7 +44,6 @@ type Session struct {
 	DiscussionTurns []DiscussionTurn `json:"discussion_turns"`
 }
 
-// CodeBlock represents a code block entered by the user
 type CodeBlock struct {
 	Language string `json:"language"`
 	Code     string `json:"code"`
@@ -52,8 +51,9 @@ type CodeBlock struct {
 
 // AIResponse represents a single AI response
 type AIResponse struct {
-	AIName   string `json:"ai_name"`
-	Response string `json:"response"`
+	AIName     string `json:"ai_name"`
+	Response   string `json:"response"`
+	UserPrompt string `json:"user_prompt"`
 }
 
 // DiscussionTurn represents a single turn in the AI-to-AI discussion
@@ -142,7 +142,7 @@ func saveSessionToFile(session Session) error {
 		return fmt.Errorf("failed to write session to %s: %w", filename, err)
 	}
 
-	log.Printf("Session saved to %s", filename)
+	logger.Printf("Session saved to %s", filename)
 	return nil
 }
 
@@ -318,7 +318,7 @@ func (c *GrokClient) sendRequest(ctx context.Context, reqBody APIRequest, aiMode
 	})
 
 	if strings.Contains(strings.ToLower(response), "grok-1.5") && strings.Contains(apiResp.Model, aiModel) {
-		log.Printf("Warning: Grok response claims Grok-1.5, but API metadata indicates %s. This may be a bug.", apiResp.Model)
+		logger.Printf("Warning: Grok response claims Grok-1.5, but API metadata indicates %s. This may be a bug.", apiResp.Model)
 	}
 
 	return response, nil
@@ -408,7 +408,7 @@ func ParallelUserAIChatWithAgreement(ai1, ai2 AIClient, openaiModel, grokModel s
 	defer func() {
 		// Save session when the function exits (e.g., on quit or error)
 		if err := saveSessionToFile(session); err != nil {
-			log.Printf("Error saving session: %v", err)
+			logger.Printf("Error saving session: %v", err)
 		}
 	}()
 
@@ -569,14 +569,16 @@ func ParallelUserAIChatWithAgreement(ai1, ai2 AIClient, openaiModel, grokModel s
 		// Save initial responses to session.AIConversations
 		if ai1Response != "" {
 			session.AIConversations = append(session.AIConversations, AIResponse{
-				AIName:   ai1Name,
-				Response: ai1Response,
+				AIName:     ai1Name,
+				Response:   ai1Response,
+				UserPrompt: userInput,
 			})
 		}
 		if ai2Response != "" {
 			session.AIConversations = append(session.AIConversations, AIResponse{
-				AIName:   ai2Name,
-				Response: ai2Response,
+				AIName:     ai2Name,
+				Response:   ai2Response,
+				UserPrompt: userInput,
 			})
 		}
 
@@ -680,6 +682,7 @@ func ParallelUserAIChatWithAgreement(ai1, ai2 AIClient, openaiModel, grokModel s
 			discussionHistory += fmt.Sprintf("\nUser: %s", userIntervention)
 		}
 
+		// lastUserInput := userInput
 		for turn := 0; turn < maxAITurns; turn++ {
 			// '30*time.Second' causes 'context deadline exceeded'
 			ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
@@ -703,8 +706,9 @@ func ParallelUserAIChatWithAgreement(ai1, ai2 AIClient, openaiModel, grokModel s
 			fmt.Printf("%s\n", color.Format(color.PURPLE, "------------------------------------------------"))
 			discussionHistory += fmt.Sprintf("\n%s: %s", ai1Name, cleanedResp)
 			discussionTurn.Responses = append(discussionTurn.Responses, AIResponse{
-				AIName:   ai1Name,
-				Response: cleanedResp,
+				AIName:     ai1Name,
+				Response:   cleanedResp,
+				UserPrompt: userIntervention,
 			})
 
 			// Grok (ai2) responds
@@ -722,8 +726,9 @@ func ParallelUserAIChatWithAgreement(ai1, ai2 AIClient, openaiModel, grokModel s
 			fmt.Printf("%s\n", color.Format(color.PURPLE, "------------------------------------------------"))
 			discussionHistory += fmt.Sprintf("\n%s: %s", ai2Name, cleanedResp)
 			discussionTurn.Responses = append(discussionTurn.Responses, AIResponse{
-				AIName:   ai2Name,
-				Response: cleanedResp,
+				AIName:     ai2Name,
+				Response:   cleanedResp,
+				UserPrompt: userIntervention,
 			})
 
 			// Save discussion turn to session
@@ -830,8 +835,9 @@ func ParallelUserAIChatWithAgreement(ai1, ai2 AIClient, openaiModel, grokModel s
 					fmt.Printf("%s User (you): %s\n", color.Format(color.BLUE, "User"), userIntervention)
 					discussionHistory += fmt.Sprintf("\nUser: %s", userIntervention)
 					// Save user intervention to session
-					session.UserInputs = append(session.UserInputs, userIntervention)
+					session.UserInputs = append(session.UserInputs, "")
 				}
+				session.UserInputs = append(session.UserInputs, userIntervention)
 
 				cancel()
 				break
@@ -863,7 +869,7 @@ func AutoAIChat(ai1, ai2 AIClient, openaiModel, grokModel string, maxAITurns int
 	defer func() {
 		// Save session when the function exits
 		if err := saveSessionToFile(session); err != nil {
-			log.Printf("Error saving session: %v", err)
+			logger.Printf("Error saving session: %v", err)
 		}
 	}()
 
@@ -1161,8 +1167,6 @@ func main() {
 	}
 
 	autoMode := flag.Bool("auto", false, "Run in automatic AI-to-AI discussion mode")
-	// todo
-	// reqDebug := flag.Bool("debug", false, "Debug mode - show HTTP requests details")
 	flag.Parse()
 
 	openaiClient := NewOpenAIClientAdapter(openaiKey)

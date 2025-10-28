@@ -1,7 +1,7 @@
 GOLANG_VERSION := 1.23.2
 
 APP_NAME := ai2ai
-APP_VERSION := 0.0.1
+APP_VERSION := 0.1.1
 
 .DEFAULT_GOAL := help
 .PHONY: build_mac build_linux
